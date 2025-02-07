@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/schedules")
@@ -23,9 +24,19 @@ public class ScheduleController {
     }
 
     @GetMapping
-    public List<Schedule> getAllSchedules() {
-        return scheduleService.getAllSchedules();
+    public ResponseEntity<List<ScheduleResponse>> getAllSchedules() {
+        List<ScheduleResponse> schedules = scheduleService.getAllSchedules()
+                .stream()
+                .map(schedule -> new ScheduleResponse(
+                    schedule.getId(),
+                    schedule.getDescription(),
+                    schedule.getDate(),
+                    schedule.isDeleted()
+                ))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(schedules);
     }
+    
 
     @GetMapping("/{id}")
     public ResponseEntity<ScheduleResponse> getSchedule(@PathVariable UUID id) {

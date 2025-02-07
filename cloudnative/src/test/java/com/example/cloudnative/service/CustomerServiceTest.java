@@ -5,11 +5,9 @@ import com.example.cloudnative.model.Customer;
 import com.example.cloudnative.repository.CustomerRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -19,7 +17,6 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
 class CustomerServiceTest {
 
     @Mock
@@ -29,50 +26,70 @@ class CustomerServiceTest {
     private CustomerService customerService;
 
     private Customer customer;
-    private UUID customerId;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        customerId = UUID.randomUUID();
-        customer = new Customer(customerId, "John", "Doe", LocalDate.of(1990, 5, 20), 123456789L, "+1234567890", false);
+        customer = new Customer(
+                UUID.randomUUID(), "John", "Doe",
+                LocalDate.of(1990, 1, 1), 123456789L,
+                "+1234567890", false
+        );
     }
 
     @Test
-    void testGetAllCustomers() {
+    void shouldReturnAllCustomers() {
         when(customerRepository.findByDeletedFalse()).thenReturn(List.of(customer));
+
         List<Customer> customers = customerService.getAllCustomers();
-        assertFalse(customers.isEmpty());
+        
+        assertEquals(1, customers.size());
         verify(customerRepository, times(1)).findByDeletedFalse();
     }
 
     @Test
-    void testGetCustomerById_Success() {
-        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
-        Customer foundCustomer = customerService.getCustomerById(customerId);
+    void shouldReturnCustomerById() {
+        when(customerRepository.findByIdAndDeletedFalse(customer.getId())).thenReturn(Optional.of(customer));
+
+        Customer foundCustomer = customerService.getCustomerById(customer.getId());
+
         assertNotNull(foundCustomer);
-        assertEquals("John", foundCustomer.getFirstName());
+        assertEquals(customer.getId(), foundCustomer.getId());
     }
 
     @Test
-    void testGetCustomerById_NotFound() {
-        when(customerRepository.findById(customerId)).thenReturn(Optional.empty());
-        assertThrows(ResourceNotFoundException.class, () -> customerService.getCustomerById(customerId));
+    void shouldThrowExceptionWhenCustomerNotFound() {
+        UUID randomId = UUID.randomUUID();
+        when(customerRepository.findByIdAndDeletedFalse(randomId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> customerService.getCustomerById(randomId));
     }
 
     @Test
-    void testCreateCustomer() {
-        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        Customer savedCustomer = customerService.createCustomer(customer);
-        assertNotNull(savedCustomer);
-        assertEquals("John", savedCustomer.getFirstName());
+    void shouldCreateCustomer() {
+        when(customerRepository.save(any(Customer.class))).thenReturn(customer);
+
+        Customer createdCustomer = customerService.createCustomer(customer);
+
+        assertNotNull(createdCustomer);
+        assertEquals("John", createdCustomer.getFirstName());
     }
 
     @Test
-    void testDeleteCustomer() {
-        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
-        customerService.deleteCustomer(customerId);
-        assertTrue(customer.isDeleted());
-        verify(customerRepository, times(1)).save(customer);
+    void shouldDeleteCustomer() {
+        when(customerRepository.existsById(customer.getId())).thenReturn(true);
+        doNothing().when(customerRepository).softDeleteById(customer.getId());
+
+        customerService.deleteCustomer(customer.getId());
+
+        verify(customerRepository, times(1)).softDeleteById(customer.getId());
+    }
+
+    @Test
+    void shouldThrowExceptionWhenDeletingNonExistentCustomer() {
+        UUID randomId = UUID.randomUUID();
+        when(customerRepository.existsById(randomId)).thenReturn(false);
+
+        assertThrows(ResourceNotFoundException.class, () -> customerService.deleteCustomer(randomId));
     }
 }

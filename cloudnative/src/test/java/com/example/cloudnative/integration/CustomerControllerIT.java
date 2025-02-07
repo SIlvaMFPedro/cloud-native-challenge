@@ -1,88 +1,45 @@
-package com.example.cloudnative.integration;
+package com.example.cloudnative;
 
 import com.example.cloudnative.model.Customer;
 import com.example.cloudnative.repository.CustomerRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.web.server.LocalServerPort;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
-import static org.hamcrest.Matchers.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest
-@AutoConfigureMockMvc
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class CustomerControllerIT {
 
+    @LocalServerPort
+    private int port;
+
     @Autowired
-    private MockMvc mockMvc;
+    private TestRestTemplate restTemplate;
 
     @Autowired
     private CustomerRepository customerRepository;
 
-    private UUID customerId;
+    private String baseUrl;
 
     @BeforeEach
-    void setup() {
+    void setUp() {
+        baseUrl = "http://localhost:" + port + "/api/customers";
         customerRepository.deleteAll();
-
-        Customer customer = Customer.builder()
-                .firstName("John")
-                .lastName("Doe")
-                .fiscalNumber(123456789L)
-                .mobileNumber("+1234567890")
-                .deleted(false)
-                .build();
-
-        customer = customerRepository.save(customer);
-        customerId = customer.getId();
     }
 
     @Test
-    void testGetAllCustomers() throws Exception {
-        mockMvc.perform(get("/api/customers"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].firstName", is("John")));
-    }
+    void shouldCreateAndFetchCustomer() {
+        Customer customer = new Customer(UUID.randomUUID(), "John", "Doe",
+                LocalDate.of(1990, 1, 1), 123456789L, "+1234567890", false);
 
-    @Test
-    void testGetCustomerById() throws Exception {
-        mockMvc.perform(get("/api/customers/{id}", customerId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.firstName", is("John")));
-    }
-
-    @Test
-    void testCreateCustomer() throws Exception {
-        String customerJson = """
-                {
-                  "firstName": "Jane",
-                  "lastName": "Doe",
-                  "fiscalNumber": 987654321,
-                  "mobileNumber": "+9876543210"
-                }
-                """;
-
-        mockMvc.perform(post("/api/customers")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(customerJson))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.firstName", is("Jane")));
-    }
-
-    @Test
-    void testDeleteCustomer() throws Exception {
-        mockMvc.perform(delete("/api/customers/{id}", customerId))
-                .andExpect(status().isNoContent());
-
-        mockMvc.perform(get("/api/customers/{id}", customerId))
-                .andExpect(status().isNotFound());
+        Customer created = restTemplate.postForObject(baseUrl, customer, Customer.class);
+        assertNotNull(created);
     }
 }

@@ -8,10 +8,12 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
+@Table(name = "customers")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@EqualsAndHashCode(exclude = "id")
 public class Customer {
 
     @Id
@@ -30,13 +32,13 @@ public class Customer {
     private LocalDate birthdate;
 
     @NotNull(message = "Fiscal number is required")
-    @Min(value = 100000000, message = "Fiscal number must have at least 9 digits")
+    @Digits(integer = 15, fraction = 0, message = "Fiscal number must be up to 15 digits long")
     private Long fiscalNumber;
 
     @NotBlank(message = "Mobile number is required")
     @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Invalid mobile number format")
     private String mobileNumber;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
     private boolean deleted = false;
 }

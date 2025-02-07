@@ -1,12 +1,14 @@
 package com.example.cloudnative.service;
 
+import com.example.cloudnative.dto.CustomerResponse;
 import com.example.cloudnative.exception.ResourceNotFoundException;
 import com.example.cloudnative.model.Customer;
-import com.example.cloudnative.dto.CustomerResponse;
 import com.example.cloudnative.repository.CustomerRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -25,51 +27,41 @@ public class CustomerService {
 
     public Customer getCustomerById(UUID id) {
         return customerRepository.findByIdAndDeletedFalse(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Customer with ID " + id + "not found!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Customer with ID " + id + " not found!"));
     }
 
     public Customer createCustomer(Customer customer) {
+        // Check if the fiscal number is already in use
+        Optional<Customer> existingCustomer = customerRepository.findByFiscalNumberAndDeletedFalse(customer.getFiscalNumber());
+        if (existingCustomer.isPresent()) {
+            throw new IllegalArgumentException("A customer with this fiscal number already exists!");
+        }
         return customerRepository.save(customer);
     }
 
     public Customer updateCustomer(UUID id, Customer updatedCustomer) {
-        /*
-        return customerRepository.findById(id)
-            .map(customer -> {
-                customer.setFirstName(updatedCustomer.getFirstName());
-                customer.setLastName(updatedCustomer.getLastName());
-                customer.setBirthdate(updatedCustomer.getBirthdate());
-                customer.setFiscalNumber(updatedCustomer.getFiscalNumber());
-                customer.setMobileNumber(updatedCustomer.getMobileNumber());
-                return customerRepository.save(customer);
-            }).orElseThrow(() -> new ResourceNotFoundException("Customer with ID " + id + "not found!"));
-         */
-        // Create customer instance
         Customer customer = getCustomerById(id);
+
+        // Prevent duplicate fiscal numbers when updating
+        Optional<Customer> existingCustomer = customerRepository.findByFiscalNumberAndDeletedFalse(updatedCustomer.getFiscalNumber());
+        if (existingCustomer.isPresent() && !existingCustomer.get().getId().equals(id)) {
+            throw new IllegalArgumentException("A customer with this fiscal number already exists!");
+        }
+
         customer.setFirstName(updatedCustomer.getFirstName());
         customer.setLastName(updatedCustomer.getLastName());
         customer.setBirthdate(updatedCustomer.getBirthdate());
         customer.setFiscalNumber(updatedCustomer.getFiscalNumber());
         customer.setMobileNumber(updatedCustomer.getMobileNumber());
+
         return customerRepository.save(customer);
     }
 
+    @Transactional
     public void deleteCustomer(UUID id) {
-        Customer customer = getCustomerById(id);
-        customer.setDeleted(true); // Mark as deleted instead of removing
-        customerRepository.save(customer);
+        if (!customerRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Customer with ID " + id + " not found!");
+        }
+        customerRepository.softDeleteById(id); // More efficient than fetching before updating
     }
-
-    public CustomerResponse convertToDto(Customer customer) {
-        return new CustomerResponse(
-                customer.getId(),
-                customer.getFirstName(),
-                customer.getLastName(),
-                customer.getBirthdate(),
-                customer.getFiscalNumber(),
-                customer.getMobileNumber(),
-                customer.isDeleted()
-        );
-    }
-
 }

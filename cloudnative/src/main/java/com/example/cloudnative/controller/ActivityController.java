@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/activities")
@@ -26,8 +27,18 @@ public class ActivityController {
     }
 
     @GetMapping
-    public List<Activity> getAllActivities() {
-        return activityService.getAllActivities();
+    public ResponseEntity<List<ActivityResponse>> getAllActivities() {
+        List<ActivityResponse> activities = activityService.getAllActivities()
+                .stream()
+                .map(activity -> new ActivityResponse(
+                    activity.getId(),
+                    activity.getName(),
+                    activity.getDuration(),
+                    activity.getPrice(),
+                    activity.isDeleted()
+                ))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(activities);
     }
 
     @GetMapping("/{id}")

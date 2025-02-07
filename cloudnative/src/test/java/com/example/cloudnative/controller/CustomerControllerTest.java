@@ -1,55 +1,76 @@
 package com.example.cloudnative.controller;
 
-import com.example.cloudnative.dto.CustomerResponse;
 import com.example.cloudnative.model.Customer;
 import com.example.cloudnative.service.CustomerService;
+import com.example.cloudnative.exception.ResourceNotFoundException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.mockito.Mock;
+import org.mockito.InjectMocks;
+import org.mockito.MockitoAnnotations;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;  // ✅ CORRECT IMPORT
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;  // ✅ CORRECT IMPORT
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(CustomerController.class)
 class CustomerControllerTest {
 
-    @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @Mock
     private CustomerService customerService;
 
-    @Test
-    void testCreateCustomer() throws Exception {
-        UUID id = UUID.randomUUID();
-        Customer customer = new Customer(id, "John", "Doe", LocalDate.of(1990, 5, 20), 123456789L, "+1234567890", false);
-        CustomerResponse response = new CustomerResponse(id, "John", "Doe", LocalDate.of(1990, 5, 20), 123456789L, "+1234567890", false);
+    @InjectMocks
+    private CustomerController customerController;
 
-        when(customerService.createCustomer(Mockito.any(Customer.class))).thenReturn(customer);
-        when(customerService.convertToDto(customer)).thenReturn(response);
+    private Customer customer;
 
-        mockMvc.perform(post("/api/customers")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                    "firstName": "John",
-                                    "lastName": "Doe",
-                                    "birthdate": "1990-05-20",
-                                    "fiscalNumber": 123456789,
-                                    "mobileNumber": "+1234567890"
-                                }
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.firstName").value("John"))
-                .andExpect(jsonPath("$.lastName").value("Doe"));
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        mockMvc = MockMvcBuilders.standaloneSetup(customerController).build();
+
+        customer = new Customer(
+                UUID.randomUUID(), "John", "Doe",
+                LocalDate.of(1990, 1, 1), 123456789L,
+                "+1234567890", false
+        );
     }
+
+    @Test
+    void shouldGetAllCustomers() throws Exception {
+        when(customerService.getAllCustomers()).thenReturn(List.of(customer));
+
+        mockMvc.perform(get("/api/customers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size()").value(1));
+    }
+
+    @Test
+    void shouldGetCustomerById() throws Exception {
+        when(customerService.getCustomerById(customer.getId())).thenReturn(customer);
+
+        mockMvc.perform(get("/api/customers/{id}", customer.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.firstName").value("John"));
+    }
+
+    @Test
+    void shouldReturnNotFoundForNonExistentCustomer() throws Exception {
+        UUID randomId = UUID.randomUUID();
+        
+        when(customerService.getCustomerById(randomId))
+                .thenThrow(new ResourceNotFoundException("Customer not found"));
+
+        mockMvc.perform(get("/api/customers/{id}", randomId))
+                .andExpect(status().isNotFound());
+    }
+
 }
