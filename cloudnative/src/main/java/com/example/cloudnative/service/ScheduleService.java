@@ -24,7 +24,7 @@ public class ScheduleService {
 
     public Schedule getScheduleById(UUID id) {
         return scheduleRepository.findByIdAndDeletedFalse(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Schedule with ID " + id + "not found!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Schedule with ID " + id + " not found!"));
     }
 
     public Schedule createSchedule(Schedule schedule) {
@@ -40,9 +40,13 @@ public class ScheduleService {
     }
 
     public void deleteSchedule(UUID id) {
-        Schedule schedule = getScheduleById(id);
+        /* Schedule schedule = getScheduleById(id);
         schedule.setDeleted(true); // Mark as deleted
-        scheduleRepository.save(schedule);
+        scheduleRepository.save(schedule); */
+        if(!scheduleRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Schedule with ID " + id + " not found!");
+        }
+        scheduleRepository.softDeleteById(id);
     }
 
     public ScheduleResponse convertToDto(Schedule schedule) {
