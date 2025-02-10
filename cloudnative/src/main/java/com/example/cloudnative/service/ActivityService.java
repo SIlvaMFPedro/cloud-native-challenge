@@ -42,9 +42,13 @@ public class ActivityService {
     }
 
     public void deleteActivity(UUID id) {
-        Activity activity = getActivityById(id);
+       /*  Activity activity = getActivityById(id);
         activity.setDeleted(true); // Mark as deleted
-        activityRepository.save(activity);
+        activityRepository.save(activity); */
+        if (!activityRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Activity with ID " + id + " not found!");
+        }
+        activityRepository.softDeleteById(id);  
     }
 
     public ActivityResponse convertToDto(Activity activity) {
